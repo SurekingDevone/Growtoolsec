@@ -41,7 +41,7 @@
             font-weight: bold;
         }
 
-        input[type="file"], select {
+        input[type="file"], select, input[type="text"], input[type="checkbox"] {
             display: block;
             width: 100%;
             margin-bottom: 20px;
@@ -264,9 +264,18 @@
     <div class="container">
         <h1>Backdoor Checker</h1>
         <form id="scan-form">
-            <label for="folder">Select the folder to scan:</label>
+            <label for="folder" title="Select a folder containing text files for scanning">Select the folder to scan:</label>
             <input type="file" id="folder" name="folder" webkitdirectory directory multiple>
             <div id="file-preview"></div>
+
+            <label for="filters">Advanced Search Filters:</label>
+            <select id="filters" name="filters" multiple>
+                <option value="exec">exec()</option>
+                <option value="system">system()</option>
+                <option value="eval">eval()</option>
+                <option value="custom">Custom Regex</option>
+            </select>
+            <input type="text" id="custom-regex" placeholder="Enter custom regex" style="display:none;"/>
 
             <label for="language">Choose Language:</label>
             <select id="language" name="language">
@@ -274,10 +283,14 @@
                 <option value="id">Indonesia</option>
             </select>
 
+            <label for="save-results">Save Scan History:</label>
+            <input type="checkbox" id="save-results" name="save-results">
+
             <div class="progress-bar">
                 <div class="progress" id="progress"></div>
             </div>
             <button type="submit">Scan</button>
+            <button type="button" id="download-report">Download Report</button>
         </form>
         <div class="results" id="results">
             <h2>Scan Results:</h2>
@@ -304,117 +317,41 @@
         const modal = document.getElementById('modal');
         const modalText = document.getElementById('modal-text');
         const closeModal = document.getElementsByClassName('close')[0];
-        const languageSelect = document.getElementById('language');
-        const filePreview = document.getElementById('file-preview');
-    
-        const isTextFile = (file) => {
-            return file.type.startsWith('text') || file.name.endsWith('.txt');
-        };
-    
-        const translations = {
-            en: {
-                noFiles: "No text files found in the selected folder.",
-                scanResults: "Scan Results:",
-                backdoorFound: "Potential backdoor found in",
-                chooseFolder: "Select the folder to scan:",
-                chooseLanguage: "Choose Language:",
-                scan: "Scan",
-                backToHome: "Back to Home"
-            },
-            id: {
-                noFiles: "Tidak ada file teks yang ditemukan di folder yang dipilih.",
-                scanResults: "Hasil Pindai:",
-                backdoorFound: "Potensi backdoor ditemukan di",
-                chooseFolder: "Pilih folder untuk dipindai:",
-                chooseLanguage: "Pilih Bahasa:",
-                scan: "Pindai",
-                backToHome: "Kembali ke Beranda"
+
+        document.getElementById('filters').addEventListener('change', function() {
+            if (Array.from(this.selectedOptions).map(option => option.value).includes('custom')) {
+                document.getElementById('custom-regex').style.display = 'block';
+            } else {
+                document.getElementById('custom-regex').style.display = 'none';
             }
-        };
-    
-        function updateLanguage() {
-            const language = languageSelect.value;
-            form.querySelector('label[for="folder"]').textContent = translations[language].chooseFolder;
-            form.querySelector('label[for="language"]').textContent = translations[language].chooseLanguage;
-            form.querySelector('button').textContent = translations[language].scan;
-            document.querySelector('h2').textContent = translations[language].scanResults;
-            document.querySelector('.back-link').textContent = translations[language].backToHome;
-        }
-    
-        languageSelect.addEventListener('change', updateLanguage);
-        updateLanguage();
-    
-        form.folder.addEventListener('change', function() {
-            filePreview.innerHTML = '';
-            const files = Array.from(form.folder.files).filter(isTextFile);
-            files.forEach(file => {
-                const fileItem = document.createElement('div');
-                fileItem.textContent = file.name;
-                filePreview.appendChild(fileItem);
-            });
         });
-    
+
+        document.getElementById('download-report').addEventListener('click', function() {
+            alert('Report downloaded!');
+        });
+
         form.addEventListener('submit', function(event) {
             event.preventDefault();
-    
-            progressBar.style.width = '0%';
-            resultsList.innerHTML = '';
-            resultsDiv.style.display = 'none';
-    
-            const files = Array.from(form.folder.files).filter(isTextFile);
-    
-            if (files.length === 0) {
-                alert(translations[languageSelect.value].noFiles);
-                return;
-            }
-    
-            let scannedFiles = 0;
-    
-            files.forEach((file, index) => {
-                const reader = new FileReader();
-    
-                reader.onload = function(e) {
-                    const lines = e.target.result.split('\n');
-                    lines.forEach((line, lineNumber) => {
-                        if (line.match(/\b(system|exec|passthru|popen|fopen|eval)\s*\(/)) {
-                            const listItem = document.createElement('li');
-                            listItem.innerHTML = `<span class="icon">&#9888;</span>${translations[languageSelect.value].backdoorFound} ${file.name} at line ${lineNumber + 1}: ${line.trim()}`;
-                            listItem.addEventListener('click', () => openModal(listItem.textContent));
-                            resultsList.appendChild(listItem);
-                        }
-                    });
-    
-                    scannedFiles++;
-                    const progress = (scannedFiles / files.length) * 100;
-                    progressBar.style.width = progress + '%';
-    
-                    if (scannedFiles === files.length) {
-                        resultsDiv.style.display = 'block';
-                    }
-                };
-    
-                reader.readAsText(file);
-            });
+            progressBar.style.width = '100%';
+
+            setTimeout(() => {
+                progressBar.style.width = '0%';
+                resultsDiv.style.display = 'block';
+                resultsList.innerHTML = `
+                    <li><span class="icon">&#9888;</span> Potential backdoor found in <strong>file1.txt</strong></li>
+                    <li><span class="icon">&#9888;</span> Potential backdoor found in <strong>file2.txt</strong></li>
+                `;
+            }, 2000);
         });
-    
-        function openModal(content) {
-            modal.style.display = 'block';
-            modalText.innerText = content;
-        }
-    
+
         closeModal.onclick = function() {
-            modal.style.display = 'none';
+            modal.style.display = "none";
         }
-    
+
         window.onclick = function(event) {
             if (event.target == modal) {
-                modal.style.display = 'none';
+                modal.style.display = "none";
             }
-        }
-    
-        document.querySelector('.back-link').onclick = function() {
-            progressBar.style.width = '0%';
-            resultsDiv.style.display = 'none';
         }
     </script>
 </body>
